@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Analysis {
+  id             String   @id @default(cuid())
+  smiles         String
+  compoundName   String?
+  formula        String?
+  molecularWeight Float?
+  pubchemCid     Int?
+  target         String?
+  disease        String?
+  status         String   @default("pending") // pending | retrieving | analyzing | in_review | completed
+  recommendation String?  // low_risk | expert_review | high_risk
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  patents        Patent[]
+  report         Report?
+}
+
+model Patent {
+  id              String          @id @default(cuid())
+  analysisId      String
+  analysis        Analysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  patentNumber    String
+  title           String          @default("Unknown Title")
+  publicationDate DateTime?
+  assignee        String?
+  abstract        String?
+  source          String          // pubchem_xref | google_patents | both
+  relevanceScore  Float           @default(0)
+  retrievalMethod String          // structural | keyword | both
+  estimatedExpiry DateTime?
+  isExpired       Boolean         @default(false)
+  userFlagged     Boolean         @default(false)
+  userReviewed    Boolean         @default(false)
+  aiExplanation   AiExplanation?
+  createdAt       DateTime        @default(now())
+
+  @@unique([analysisId, patentNumber])
+}
+
+model AiExplanation {
+  id             String @id @default(cuid())
+  patentId       String @unique
+  patent         Patent @relation(fields: [patentId], references: [id], onDelete: Cascade)
+  reason         String
+  similarAspects String
+  overlap        String
+  confidence     String // low | medium | high
+  confidenceReason String?
+}
+
+model Report {
+  id                String   @id @default(cuid())
+  analysisId        String   @unique
+  analysis          Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  executiveSummary  String
+  keySimilarPatents String
+  noveltyConcerns   String
+  manualReviewList  String
+  recommendation    String
+  rationale         String
+  createdAt         DateTime @default(now())
+}
+
+model LlmCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  response  Json
+  createdAt DateTime @default(now())
+}
